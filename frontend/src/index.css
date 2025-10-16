@@ -1,0 +1,191 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-color: #161514;
+  --primary-color: #DEDBCC;
+  --primary-hover-color: #C7C5B7;
+  --primary-dark-color: #B1AFA3;
+  --blue-color: #DEDBCC;
+  --blue-hover-color: #C7C5B7;
+  --blue-dark-color: #B1AFA3;
+  --purple-color: #9B998E;
+  --purple-hover-color: #85837A;
+  --purple-dark-color: #6F6D66;
+  --green-color: #00b894;
+  --green-hover-color: #00a383;
+  --green-dark-color: #009178;
+  --peach-color: #B1AFA3;
+  --peach-hover-color: #9B998E;
+  --peach-dark-color: #85837A;
+  --red-color: #ff7675;
+  --red-hover-color: #ff6b6a;
+  --red-dark-color: #ff5f5e;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #DEDBCC;
+  background: linear-gradient(135deg, #2C2B28 0%, #42413D 50%, #585751 100%);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-blue hover:bg-blue-hover text-gray-900 font-bold py-3 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-2xl text-sm sm:text-base min-h-[44px] touch-manipulation;
+  }
+
+  .btn-secondary {
+    @apply bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none border-2 border-white/30 hover:border-blue text-sm sm:text-base min-h-[44px] touch-manipulation;
+  }
+
+  .btn-success {
+    @apply bg-green hover:bg-green-hover text-gray-900 font-bold py-3 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-2xl text-sm sm:text-base min-h-[44px] touch-manipulation;
+  }
+
+  .btn-danger {
+    @apply bg-red hover:bg-red-hover text-white font-bold py-3 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-2xl text-sm sm:text-base min-h-[44px] touch-manipulation;
+  }
+
+  .input-field {
+    @apply w-full px-4 sm:px-5 py-3 bg-white/10 border-2 border-white/30 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-blue focus:ring-2 focus:ring-blue/50 transition-all hover:border-white/50 text-base min-h-[44px];
+  }
+
+  .card {
+    @apply bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-lg border border-white/20 rounded-2xl p-4 sm:p-5 shadow-2xl transition-all duration-300;
+  }
+
+  .team-card {
+    @apply bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-lg border-2 border-white/30 rounded-2xl p-4 sm:p-6 shadow-xl hover:border-blue hover:shadow-2xl transition-all duration-300 cursor-pointer touch-manipulation;
+  }
+}
+
+/* Custom Range Slider Styles */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  outline: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background: var(--blue-color);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(222, 219, 204, 0.4);
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: var(--blue-hover-color);
+  transform: scale(1.3);
+  box-shadow: 0 6px 20px rgba(222, 219, 204, 0.6);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: var(--blue-color);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(222, 219, 204, 0.4);
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  background: var(--blue-hover-color);
+  transform: scale(1.3);
+  box-shadow: 0 6px 20px rgba(222, 219, 204, 0.6);
+}
+
+/* Smooth animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card, .team-card {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+  
+  /* Ensure touch targets are at least 44x44px */
+  button, a, input[type="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent zoom on input focus (iOS) */
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .card {
+    @apply p-6;
+  }
+}
+
+/* Prevent double-tap zoom */
+button, a {
+  touch-action: manipulation;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+/* Prevent page bounce/overscroll on iOS */
+body {
+  overscroll-behavior-y: contain;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Safe area padding for iOS notch */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Prevent content jumping */
+.overscroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
