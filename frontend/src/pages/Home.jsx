@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
+import { emitWithTimeout } from '../utils/socketHelpers';
 import LanguageToggle from '../components/LanguageToggle';
 import { Plus, LogOut, Users, Trophy } from 'lucide-react';
 
@@ -17,11 +18,15 @@ function Home() {
 
   // Check for saved room on mount
   useEffect(() => {
+    if (!socket || !connected || !user) return;
+    
     const savedRoom = localStorage.getItem('currentRoom');
-    if (savedRoom && socket && connected) {
+    if (savedRoom) {
+      console.log('🔄 Attempting to rejoin saved room:', savedRoom);
       // Try to rejoin the saved room
       socket.emit('get-room-state', (response) => {
         if (response.success) {
+          console.log('✅ Saved room found, redirecting...');
           // Room still exists, redirect to it
           if (response.room.status === 'playing') {
             navigate(`/game/${savedRoom}`, { replace: true });
@@ -30,43 +35,46 @@ function Home() {
           }
         } else {
           // Room doesn't exist anymore, clear it
+          console.log('❌ Saved room no longer exists');
           localStorage.removeItem('currentRoom');
         }
       });
     }
-  }, [socket, connected, navigate]);
+  }, [socket, connected, user, navigate]);
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
     if (!socket || !connected) {
-      setError('Not connected to server');
+      setError(t('notConnected') || 'Not connected to server');
       return;
     }
 
     setLoading(true);
     setError('');
 
-    socket.emit('create-room', {
-      username: user.username,
-      settings: {
-        roundTime: 60,
-        wordsToWin: 50,
-        teamsCount: 2,
-        difficulty: 'mixed',
-        language: language,
-        teamNames: {
-          0: 'Team 1',
-          1: 'Team 2'
+    try {
+      const response = await emitWithTimeout(socket, 'create-room', {
+        username: user.username,
+        settings: {
+          roundTime: 60,
+          wordsToWin: 50,
+          teamsCount: 2,
+          difficulty: 'mixed',
+          language: language,
+          teamNames: {
+            0: 'Team 1',
+            1: 'Team 2'
+          }
         }
-      }
-    }, (response) => {
+      }, 15000);
+      
+      // Navigate to lobby - the lobby will handle joining
+      navigate(`/lobby/${response.room.roomCode}`, { state: { room: response.room } });
+    } catch (error) {
+      console.error('Failed to create room:', error);
+      setError(error.message || t('failedToCreateRoom') || 'Failed to create room');
+    } finally {
       setLoading(false);
-      if (response.success) {
-        // Navigate to lobby - the lobby will handle joining
-        navigate(`/lobby/${response.room.roomCode}`, { state: { room: response.room } });
-      } else {
-        setError(response.error);
-      }
-    });
+    }
   };
 
   const handleJoinRoom = (e) => {

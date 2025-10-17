@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { LanguageProvider } from './context/LanguageContext';
 import ConnectionStatus from './components/ConnectionStatus';
+import SocketErrorBoundary from './components/SocketErrorBoundary';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
@@ -49,59 +50,61 @@ function App() {
     <LanguageProvider>
       <AuthProvider>
         <SocketProvider>
-          <ConnectionStatus />
-          <Router>
-            <Routes>
-            <Route
-              path="/login"
-              element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <PublicRoute>
-                  <Register />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Home />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lobby/:roomCode"
-              element={
-                <ProtectedRoute>
-                  <GameLobby />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/game/:roomCode"
-              element={
-                <ProtectedRoute>
-                  <Game />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/statistics"
-              element={
-                <ProtectedRoute>
-                  <Statistics />
-                </ProtectedRoute>
-              }
-            />
-            </Routes>
-          </Router>
+          <SocketErrorBoundary>
+            <ConnectionStatus />
+            <Router>
+              <Routes>
+              <Route
+                path="/login"
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <PublicRoute>
+                    <Register />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Home />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/lobby/:roomCode"
+                element={
+                  <ProtectedRoute>
+                    <GameLobby />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/game/:roomCode"
+                element={
+                  <ProtectedRoute>
+                    <Game />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/statistics"
+                element={
+                  <ProtectedRoute>
+                    <Statistics />
+                  </ProtectedRoute>
+                }
+              />
+              </Routes>
+            </Router>
+          </SocketErrorBoundary>
         </SocketProvider>
       </AuthProvider>
     </LanguageProvider>

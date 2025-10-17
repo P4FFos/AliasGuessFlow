@@ -37,28 +37,49 @@ export const SocketProvider = ({ children }) => {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
+      timeout: 20000,
       transports: ['websocket', 'polling']
     });
 
     newSocket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('✅ Socket connected');
       setConnected(true);
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 Socket reconnected after ${attemptNumber} attempts`);
+      setConnected(true);
+    });
+
+    newSocket.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`🔄 Reconnection attempt ${attemptNumber}...`);
+    });
+
+    newSocket.on('reconnect_error', (error) => {
+      console.error('❌ Reconnection error:', error.message);
+    });
+
+    newSocket.on('reconnect_failed', () => {
+      console.error('❌ Reconnection failed after all attempts');
+      setConnected(false);
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log('⚠️ Socket disconnected:', reason);
       setConnected(false);
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      console.error('❌ Socket connection error:', error.message);
       setConnected(false);
     });
 
     setSocket(newSocket);
 
     return () => {
+      console.log('🔌 Cleaning up socket connection');
+      newSocket.removeAllListeners();
       newSocket.disconnect();
     };
   }, [token]);

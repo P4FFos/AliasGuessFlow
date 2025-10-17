@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
+import { emitWithTimeout } from '../utils/socketHelpers';
 import { Copy, Check, Users, Crown, ArrowLeft, Play, Settings, Link } from 'lucide-react';
 
 function GameLobby() {
@@ -44,10 +45,16 @@ function GameLobby() {
   }, [gameState]);
 
   useEffect(() => {
-    if (!socket || !connected) return;
+    if (!socket || !connected || !user) return;
 
     // Save current room to localStorage for persistence
     localStorage.setItem('currentRoom', roomCode);
+
+    // Remove all previous listeners before setting up new ones
+    socket.off('game-state-update');
+    socket.off('player-joined');
+    socket.off('player-left');
+    socket.off('game-started');
 
     // Always rejoin the room to ensure socket is registered
     // Even if we have state from navigation, the socket connection might be new
@@ -56,6 +63,7 @@ function GameLobby() {
       username: user.username
     }, (response) => {
       if (response.success) {
+        console.log('✅ Successfully joined lobby:', response.room.roomCode);
         setGameState(response.room);
         setSettings({
           ...response.room.settings,
@@ -115,7 +123,7 @@ function GameLobby() {
       socket.off('player-left');
       socket.off('game-started');
     };
-  }, [socket, connected, roomCode, navigate]);
+  }, [socket, connected, roomCode, navigate, user]);
 
   const copyRoomCode = () => {
     navigator.clipboard.writeText(roomCode);
@@ -130,41 +138,45 @@ function GameLobby() {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleTeamSelect = (teamId) => {
+  const handleTeamSelect = async (teamId) => {
     if (!socket || !connected) {
-      setError('Not connected to server');
+      setError(t('notConnected') || 'Not connected to server');
       return;
     }
     
     console.log('Assigning to team:', teamId);
-    socket.emit('assign-team', { teamId }, (response) => {
-      console.log('Assign team response:', response);
-      if (!response.success) {
-        setError(response.error);
-      } else {
-        setError('');
-      }
-    });
+    try {
+      await emitWithTimeout(socket, 'assign-team', { teamId }, 5000);
+      setError('');
+    } catch (error) {
+      console.error('Assign team error:', error.message);
+      setError(error.message);
+    }
   };
 
-  const handleToggleReady = () => {
-    socket.emit('toggle-ready', (response) => {
-      if (!response.success) {
-        setError(response.error);
-      }
-    });
+  const handleToggleReady = async () => {
+    try {
+      await emitWithTimeout(socket, 'toggle-ready', {}, 5000);
+      setError('');
+    } catch (error) {
+      console.error('Toggle ready error:', error.message);
+      setError(error.message);
+    }
   };
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     setLoading(true);
     setLoadingMessage(t('startingGame') || 'Starting game...');
-    socket.emit('start-game', (response) => {
+    try {
+      await emitWithTimeout(socket, 'start-game', {}, 10000);
+      // Navigation will happen via game-started event
+    } catch (error) {
+      console.error('Start game error:', error.message);
+      setError(error.message);
+    } finally {
       setLoading(false);
       setLoadingMessage('');
-      if (!response.success) {
-        setError(response.error);
-      }
-    });
+    }
   };
 
   const handleLeave = () => {
@@ -181,26 +193,26 @@ function GameLobby() {
     });
   };
 
-  const handleUpdateSettings = () => {
+  const handleUpdateSettings = async () => {
     if (!socket || !connected) {
-      setError('Not connected to server');
+      setError(t('notConnected') || 'Not connected to server');
       return;
     }
     
     setLoading(true);
     setLoadingMessage(t('updatingSettings') || 'Updating settings...');
     console.log('Updating settings:', settings);
-    socket.emit('update-settings', { settings }, (response) => {
+    try {
+      await emitWithTimeout(socket, 'update-settings', { settings }, 10000);
+      setShowSettings(false);
+      setError('');
+    } catch (error) {
+      console.error('Update settings error:', error.message);
+      setError(error.message);
+    } finally {
       setLoading(false);
       setLoadingMessage('');
-      console.log('Update settings response:', response);
-      if (response.success) {
-        setShowSettings(false);
-        setError('');
-      } else {
-        setError(response.error);
-      }
-    });
+    }
   };
 
   if (!connected) {

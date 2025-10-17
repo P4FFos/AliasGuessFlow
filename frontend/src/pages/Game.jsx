@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
+import { emitWithTimeout } from '../utils/socketHelpers';
 import { Check, X, Trophy, ArrowLeft, Play } from 'lucide-react';
 
 function Game() {
@@ -34,10 +35,20 @@ function Game() {
   }, [gameState]);
 
   useEffect(() => {
-    if (!socket || !connected) return;
+    if (!socket || !connected || !user) return;
 
     // Save current room to localStorage for persistence
     localStorage.setItem('currentRoom', roomCode);
+
+    // Remove all previous listeners before setting up new ones
+    socket.off('game-state-update');
+    socket.off('explainer-view');
+    socket.off('time-update');
+    socket.off('score-update');
+    socket.off('round-ended');
+    socket.off('round-started');
+    socket.off('game-ended');
+    socket.off('timer-expired');
 
     // Rejoin room on reconnection
     socket.emit('join-room', {
@@ -45,7 +56,21 @@ function Game() {
       username: user.username
     }, (response) => {
       if (response.success) {
+        console.log('✅ Successfully rejoined room:', response.room.status);
         setGameState(response.room);
+        
+        // If we're the explainer and game is playing, request explainer view
+        if (response.room.status === 'playing' && 
+            response.room.currentRound && 
+            response.room.currentRound.explainerId === user.id) {
+          console.log('🎤 Requesting explainer view after reconnection');
+          // Explainer view should be sent automatically by backend, but request as backup
+          socket.emit('get-room-state', (resp) => {
+            if (resp.success) {
+              setGameState(resp.room);
+            }
+          });
+        }
       } else {
         console.error('Failed to rejoin room:', response.error);
         localStorage.removeItem('currentRoom');
@@ -59,6 +84,7 @@ function Game() {
     });
 
     socket.on('explainer-view', (view) => {
+      console.log('📝 Explainer view received:', view);
       setExplainerView(view);
       if (view) {
         setTimeRemaining(Math.floor(view.timeRemaining / 1000));
@@ -69,6 +95,10 @@ function Game() {
       setTimeRemaining(Math.floor(data.timeRemaining / 1000));
     });
 
+    socket.on('timer-expired', () => {
+      console.log('⏰ Timer expired event received');
+    });
+
     socket.on('score-update', (data) => {
       setGameState(prev => ({
         ...prev,
@@ -77,6 +107,7 @@ function Game() {
     });
 
     socket.on('round-ended', (result) => {
+      console.log('🏁 Round ended');
       setRoundEnded(true);
       setExplainerView(null);
       // Request updated game state to get waitingForNextRound flag
@@ -88,6 +119,7 @@ function Game() {
     });
 
     socket.on('round-started', (state) => {
+      console.log('▶️ Round started');
       setGameState(state);
       setRoundEnded(false);
     });
@@ -114,34 +146,35 @@ function Game() {
       socket.off('round-ended');
       socket.off('round-started');
       socket.off('game-ended');
+      socket.off('timer-expired');
     };
-  }, [socket, connected, roomCode, navigate]);
+  }, [socket, connected, roomCode, navigate, user]);
 
-  const handleGuess = (correct) => {
-    socket.emit('guess-word', { correct }, (response) => {
-      if (!response.success) {
-        console.error('Guess error:', response.error);
-      }
-    });
+  const handleGuess = async (correct) => {
+    try {
+      await emitWithTimeout(socket, 'guess-word', { correct }, 5000);
+    } catch (error) {
+      console.error('Guess error:', error.message);
+      // Don't show error to user - just log it, the game state will sync
+    }
   };
 
-  const handleConfirmReady = () => {
+  const handleConfirmReady = async () => {
     console.log('Confirming ready for next round...');
-    socket.emit('confirm-ready-next-round', (response) => {
-      if (response.success) {
-        console.log('Ready confirmed successfully');
-      } else {
-        console.error('Confirm ready error:', response.error);
-      }
-    });
+    try {
+      await emitWithTimeout(socket, 'confirm-ready-next-round', {}, 5000);
+      console.log('Ready confirmed successfully');
+    } catch (error) {
+      console.error('Confirm ready error:', error.message);
+    }
   };
 
-  const handleStartNextRound = () => {
-    socket.emit('start-next-round', (response) => {
-      if (!response.success) {
-        console.error('Start round error:', response.error);
-      }
-    });
+  const handleStartNextRound = async () => {
+    try {
+      await emitWithTimeout(socket, 'start-next-round', {}, 5000);
+    } catch (error) {
+      console.error('Start round error:', error.message);
+    }
   };
 
   const handleLeave = () => {
@@ -253,33 +286,36 @@ function Game() {
       }));
     };
 
-    const applyAdjustments = () => {
+    const applyAdjustments = async () => {
       // Send adjustments to backend
-      socket.emit('adjust-word-scores', { adjustments: wordAdjustments }, (response) => {
-        if (response.success) {
-          setWordAdjustments({});
-          // Refresh game state
-          socket.emit('get-room-state', (resp) => {
-            if (resp.success) setGameState(resp.room);
-          });
+      try {
+        await emitWithTimeout(socket, 'adjust-word-scores', { adjustments: wordAdjustments }, 5000);
+        setWordAdjustments({});
+        // Refresh game state
+        try {
+          const resp = await emitWithTimeout(socket, 'get-room-state', {}, 5000);
+          setGameState(resp.room);
+        } catch (err) {
+          console.error('Failed to refresh game state:', err.message);
         }
-      });
+      } catch (error) {
+        console.error('Failed to apply adjustments:', error.message);
+      }
     };
 
-    const handleConfirmScores = () => {
+    const handleConfirmScores = async () => {
       console.log('🎯 Confirming scores...');
-      socket.emit('confirm-scores-ready', (response) => {
+      try {
+        const response = await emitWithTimeout(socket, 'confirm-scores-ready', {}, 5000);
         console.log('📊 Confirm scores response:', response);
-        if (response.success) {
-          if (response.gameEnded) {
-            console.log('✅ Game will end - waiting for game-ended event');
-          } else {
-            console.log('➡️ Game continues to next round');
-          }
+        if (response.gameEnded) {
+          console.log('✅ Game will end - waiting for game-ended event');
         } else {
-          console.error('Confirm scores error:', response.error);
+          console.log('➡️ Game continues to next round');
         }
-      });
+      } catch (error) {
+        console.error('Confirm scores error:', error.message);
+      }
     };
     
     return (

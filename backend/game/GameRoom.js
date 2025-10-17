@@ -35,9 +35,18 @@ class GameRoom {
   cleanup() {
     // Clear timer interval if exists
     if (this.timerInterval) {
+      console.log(`🧹 Cleaning up timer for room ${this.roomCode}`);
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
+    
+    // Clear any other potential timeouts or intervals
+    this.players.clear();
+    this.spectators.clear();
+    this.words = [];
+    this.usedWords.clear();
+    this.gameHistory = [];
+    this.chatMessages = [];
   }
 
   addPlayer(userId, username, socketId) {

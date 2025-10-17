@@ -26,14 +26,25 @@ export const setupGameSocket = (io) => {
     // Create room
     socket.on('create-room', (data, callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('create-room called without callback');
+          return;
+        }
+        
         const { username, settings } = data;
+        if (!username || !settings) {
+          return callback({ success: false, error: 'Missing required fields' });
+        }
+        
         const room = gameManager.createRoom(socket.userId, settings);
         gameManager.joinRoom(room.roomCode, socket.userId, username, socket.id);
         
         socket.join(room.roomCode);
+        console.log(`🎮 Room created: ${room.roomCode} by ${username}`);
         
         callback({ success: true, room: room.getGameState() });
       } catch (error) {
+        console.error('Error creating room:', error);
         callback({ success: false, error: error.message });
       }
     });
@@ -41,7 +52,15 @@ export const setupGameSocket = (io) => {
     // Join room
     socket.on('join-room', (data, callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('join-room called without callback');
+          return;
+        }
+        
         const { roomCode, username } = data;
+        if (!roomCode || !username) {
+          return callback({ success: false, error: 'Missing room code or username' });
+        }
         
         // Check if player is already in room (reconnection)
         const existingRoom = gameManager.getRoomByUserId(socket.userId);
@@ -67,12 +86,15 @@ export const setupGameSocket = (io) => {
         
         // If game is in progress and this user is the explainer, send them the word
         if (room.status === 'playing' && room.currentRound && room.currentRound.explainerId === socket.userId) {
+          console.log(`🎤 Explainer reconnected, sending view`);
           socket.emit('explainer-view', room.getExplainerView());
           
           // Restart timer if it was paused due to disconnect
           if (!room.timerInterval && room.currentRound.isActive) {
             console.log(`▶️  Explainer reconnected, resuming timer`);
             startRoundTimer(io, room);
+          } else if (room.timerInterval) {
+            console.log(`⏰ Timer already running`);
           }
         }
       } catch (error) {
@@ -83,6 +105,11 @@ export const setupGameSocket = (io) => {
     // Get room state (for players already in room)
     socket.on('get-room-state', (callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('get-room-state called without callback');
+          return;
+        }
+        
         const room = gameManager.getRoomByUserId(socket.userId);
         
         if (!room) {
@@ -95,7 +122,14 @@ export const setupGameSocket = (io) => {
         
         // If game is in progress and this user is the explainer, send them the word
         if (room.status === 'playing' && room.currentRound && room.currentRound.explainerId === socket.userId) {
+          console.log(`🎤 Sending explainer view via get-room-state`);
           socket.emit('explainer-view', room.getExplainerView());
+          
+          // Ensure timer is running for active rounds
+          if (!room.timerInterval && room.currentRound.isActive) {
+            console.log(`▶️  Starting timer from get-room-state`);
+            startRoundTimer(io, room);
+          }
         }
       } catch (error) {
         callback({ success: false, error: error.message });
@@ -127,6 +161,10 @@ export const setupGameSocket = (io) => {
     // Assign team
     socket.on('assign-team', (data, callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('assign-team called without callback');
+          return;
+        }
         const { teamId } = data;
         const room = gameManager.getRoomByUserId(socket.userId);
         
@@ -208,6 +246,10 @@ export const setupGameSocket = (io) => {
     // Toggle ready
     socket.on('toggle-ready', (callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('toggle-ready called without callback');
+          return;
+        }
         const room = gameManager.getRoomByUserId(socket.userId);
         
         if (!room) {
@@ -227,6 +269,11 @@ export const setupGameSocket = (io) => {
     // Start game
     socket.on('start-game', (callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('start-game called without callback');
+          return;
+        }
+        
         const room = gameManager.getRoomByUserId(socket.userId);
         
         if (!room) {
@@ -235,6 +282,12 @@ export const setupGameSocket = (io) => {
 
         if (room.hostId !== socket.userId) {
           throw new Error('Only host can start the game');
+        }
+        
+        // Prevent double start
+        if (room.status === 'playing') {
+          console.warn('⚠️ Game already started');
+          return callback({ success: false, error: 'Game already started' });
         }
 
         room.updateActivity();
@@ -262,6 +315,10 @@ export const setupGameSocket = (io) => {
     // Guess word (correct/skip)
     socket.on('guess-word', (data, callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('guess-word called without callback');
+          return;
+        }
         const { correct } = data;
         const room = gameManager.getRoomByUserId(socket.userId);
         
@@ -329,6 +386,10 @@ export const setupGameSocket = (io) => {
     // Confirm ready for next round
     socket.on('confirm-ready-next-round', (callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('confirm-ready-next-round called without callback');
+          return;
+        }
         const room = gameManager.getRoomByUserId(socket.userId);
         
         if (!room) {
@@ -360,6 +421,10 @@ export const setupGameSocket = (io) => {
     // Start next round (only after ready confirmation)
     socket.on('start-next-round', (callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('start-next-round called without callback');
+          return;
+        }
         const room = gameManager.getRoomByUserId(socket.userId);
         
         if (!room) {
@@ -419,6 +484,10 @@ export const setupGameSocket = (io) => {
     // Confirm scores ready (previous explainer)
     socket.on('confirm-scores-ready', (callback) => {
       try {
+        if (!callback || typeof callback !== 'function') {
+          console.error('confirm-scores-ready called without callback');
+          return;
+        }
         const room = gameManager.getRoomByUserId(socket.userId);
         
         if (!room) {
@@ -544,11 +613,27 @@ export const setupGameSocket = (io) => {
 const startRoundTimer = (io, room) => {
   // Clear existing timer if any
   if (room.timerInterval) {
+    console.log(`⏰ Clearing existing timer for room ${room.roomCode}`);
     clearInterval(room.timerInterval);
+    room.timerInterval = null;
   }
   
+  console.log(`⏰ Starting new timer for room ${room.roomCode}`);
+  let tickCount = 0;
+  
   room.timerInterval = setInterval(() => {
+    tickCount++;
+    
+    // Safety check: if room doesn't exist or is finished, clear timer
+    if (!room || room.status === 'finished') {
+      console.log(`⏰ Room finished, clearing timer (room: ${room?.roomCode})`);
+      clearInterval(room.timerInterval);
+      room.timerInterval = null;
+      return;
+    }
+    
     if (!room.currentRound || !room.currentRound.isActive) {
+      console.log(`⏰ Round inactive, clearing timer (room: ${room.roomCode})`);
       clearInterval(room.timerInterval);
       room.timerInterval = null;
       return;
@@ -558,6 +643,7 @@ const startRoundTimer = (io, room) => {
     
     if (timeRemaining <= 0 && !room.currentRound.timerExpired) {
       // Timer expired - mark it but don't end round yet
+      console.log(`⏰ Timer expired for room ${room.roomCode}`);
       room.handleTimerExpired();
       io.to(room.roomCode).emit('timer-expired');
       io.to(room.roomCode).emit('game-state-update', room.getGameState());
@@ -567,6 +653,13 @@ const startRoundTimer = (io, room) => {
       io.to(room.roomCode).emit('time-update', {
         timeRemaining: Math.max(0, timeRemaining)
       });
+    }
+    
+    // Safety: auto-clear after 5 minutes to prevent orphaned timers
+    if (tickCount > 300) {
+      console.warn(`⚠️ Timer ran for 5+ minutes, force clearing (room: ${room.roomCode})`);
+      clearInterval(room.timerInterval);
+      room.timerInterval = null;
     }
   }, 1000);
 };
